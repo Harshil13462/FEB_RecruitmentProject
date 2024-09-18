@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
+import { Link } from 'react-router-dom';  // Import for navigation
+import axios from 'axios';
 
 const Home = () => {
-  const [datasets, setDatasets] = useState([]);  // List of datasets
+  const [datasets, setDatasets] = useState([]);
   const [selectedDataset, setSelectedDataset] = useState('');
-  const [variables, setVariables] = useState([]);  // List of variables (columns)
-  const [selectedXVariable, setSelectedXVariable] = useState('');  // Selected variable for x-axis
-  const [selectedYVariable, setSelectedYVariable] = useState('');  // Selected variable for y-axis
-  const [data, setData] = useState([]);  // Full dataset (fetched)
+  const [variables, setVariables] = useState([]);
+  const [selectedXVariable, setSelectedXVariable] = useState('');
+  const [selectedYVariable, setSelectedYVariable] = useState('');
+  const [data, setData] = useState([]);
+  const [chartData, setChartData] = useState(null);
   const [error, setError] = useState(null);
-  const [chartData, setChartData] = useState(null);  // Data for the chart
 
   useEffect(() => {
     const fetchDatasets = async () => {
       try {
         const response = await axios.get('http://localhost:4000/datasets');
-        setDatasets(response.data.datasets);  // Assuming datasets is an array
+        setDatasets(response.data.datasets);
         setError(null);
       } catch (error) {
         setError('Error fetching datasets.');
@@ -50,7 +51,6 @@ const Home = () => {
     }
   };
 
-  // Update chart data when x and y variables are selected
   useEffect(() => {
     if (selectedXVariable && selectedYVariable && data.length > 0) {
       const xValues = data.map(item => item[selectedXVariable]);
@@ -72,63 +72,78 @@ const Home = () => {
   }, [selectedXVariable, selectedYVariable, data]);
 
   return (
-    <div>
-      <h2>Select a Dataset and Variables to Plot</h2>
+    <div className="container mt-4">
+      <h2 className="text-center">Racecar Data Visualization</h2>
 
-      {/* Dataset Dropdown */}
-      {datasets && datasets.length > 0 ? (
-        <select onChange={handleDatasetSelect}>
-          <option value="">Select a dataset</option>
-          {datasets.map((dataset, index) => (
-            <option key={index} value={dataset}>
-              {dataset}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <p>No datasets available</p>
-      )}
+      <div className="text-center mt-3">
+        <Link to="/upload" className="btn btn-primary">
+          Upload New Dataset
+        </Link>
+      </div>
 
-      {/* Error Display */}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <div className="mt-5">
+        <h4>Select a Dataset</h4>
+        {datasets && datasets.length > 0 ? (
+          <select className="form-select" onChange={handleDatasetSelect}>
+            <option value="">Select a dataset</option>
+            {datasets.map((dataset, index) => (
+              <option key={index} value={dataset}>
+                {dataset}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p>No datasets available</p>
+        )}
 
-      {/* Variables Selection */}
-      {variables.length > 0 && (
-        <div>
-          <h3>Select Variables</h3>
-          <label>
-            X-axis:
-            <select onChange={(e) => setSelectedXVariable(e.target.value)} value={selectedXVariable}>
-              <option value="">Select X Variable</option>
-              {variables.map((variable, index) => (
-                <option key={index} value={variable}>
-                  {variable}
-                </option>
-              ))}
-            </select>
-          </label>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
 
-          <label>
-            Y-axis:
-            <select onChange={(e) => setSelectedYVariable(e.target.value)} value={selectedYVariable}>
-              <option value="">Select Y Variable</option>
-              {variables.map((variable, index) => (
-                <option key={index} value={variable}>
-                  {variable}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
+        {variables.length > 0 && (
+          <div className="mt-4">
+            <h5>Select Variables</h5>
+            <div className="row">
+              <div className="col-md-6">
+                <label>X-axis</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => setSelectedXVariable(e.target.value)}
+                  value={selectedXVariable}
+                >
+                  <option value="">Select X Variable</option>
+                  {variables.map((variable, index) => (
+                    <option key={index} value={variable}>
+                      {variable}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      {/* Chart Display */}
-      {chartData && (
-        <div>
-          <h3>Chart</h3>
-          <Line data={chartData} />
-        </div>
-      )}
+              <div className="col-md-6">
+                <label>Y-axis</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => setSelectedYVariable(e.target.value)}
+                  value={selectedYVariable}
+                >
+                  <option value="">Select Y Variable</option>
+                  {variables.map((variable, index) => (
+                    <option key={index} value={variable}>
+                      {variable}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {chartData && (
+          <div className="mt-5">
+            <h5>Graph</h5>
+            <Line data={chartData} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
