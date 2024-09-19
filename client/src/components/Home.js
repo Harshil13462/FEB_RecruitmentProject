@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
-import { Link } from 'react-router-dom';  // Import for navigation
 import axios from 'axios';
 
 const Home = () => {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+
   const [datasets, setDatasets] = useState([]);
   const [selectedDataset, setSelectedDataset] = useState('');
   const [variables, setVariables] = useState([]);
@@ -12,23 +15,55 @@ const Home = () => {
   const [selectedYVariable, setSelectedYVariable] = useState('');
   const [data, setData] = useState([]);
   const [chartData, setChartData] = useState(null);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchDatasets = async () => {
-      try {
-        const response = await axios.get('http://localhost:4000/datasets');
-        setDatasets(response.data.datasets);
-        setError(null);
-      } catch (error) {
-        setError('Error fetching datasets.');
-        console.error('Error fetching datasets:', error);
-      }
-    };
+  // Fetch the list of datasets
+  const fetchDatasets = async () => {
+    try {
+      const response = await axios.get('http://localhost:4000/datasets');
+      setDatasets(response.data.datasets);
+      setError(null);
+    } catch (error) {
+      setError('Error fetching datasets.');
+      console.error('Error fetching datasets:', error);
+    }
+  };
 
-    fetchDatasets();
-  }, []);
+  // Handle file selection
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
 
+  // Handle file upload
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Please select a file first.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploading(true);
+      setError(null);  // Clear any previous errors
+
+      // Send POST request to Flask backend
+      const response = await axios.post('http://localhost:4000/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setUploading(false);
+      fetchDatasets();  // Refresh the dataset list after upload
+    } catch (error) {
+      setError('File upload failed. Please try again.');
+      setUploading(false);
+      console.error(error);
+    }
+  };
+
+  // Fetch dataset variables when a dataset is selected
   const handleDatasetSelect = async (e) => {
     const dataset = e.target.value;
     setSelectedDataset(dataset);
@@ -51,10 +86,11 @@ const Home = () => {
     }
   };
 
+  // Update chart data when variables are selected
   useEffect(() => {
     if (selectedXVariable && selectedYVariable && data.length > 0) {
-      const xValues = data.map(item => item[selectedXVariable]);
-      const yValues = data.map(item => item[selectedYVariable]);
+      const xValues = data.map(item => parseFloat(item[selectedXVariable]));
+      const yValues = data.map(item => parseFloat(item[selectedYVariable]));
 
       setChartData({
         labels: xValues,
@@ -71,19 +107,72 @@ const Home = () => {
     }
   }, [selectedXVariable, selectedYVariable, data]);
 
+  // Chart options with linear X-axis and constant tick intervals
+  const chartOptions = {
+    scales: {
+      x: {
+        type: 'linear',  // Ensure X-axis is numerical
+        ticks: {
+          autoSkip: true,
+          stepSize: ((Math.max(...chartData?.labels || [0]) - Math.min(...chartData?.labels || [0])) * 1.01) / 10, // Step size based on the range of values
+        },
+        title: {
+          display: true,
+          text: selectedXVariable || 'X Variable',
+        },
+      },
+      y: {
+        title: {
+          display: true,
+          text: selectedYVariable || 'Y Variable',
+        },
+      },
+    },
+  };
+
+  // Fetch datasets on component mount
+  useEffect(() => {
+    fetchDatasets();
+  }, []);
+
   return (
     <div className="container mt-4">
-      <h2 className="text-center">Racecar Data Visualization</h2>
+      <h2 className="text-center">Racecar Data Visualization & Upload</h2>
 
-      <div className="text-center mt-3">
-        <Link to="/upload" className="btn btn-primary">
-          Upload New Dataset
-        </Link>
+      {/* File Upload Section */}
+      <div className="mt-3">
+        <h4>Upload CSV File</h4>
+        <input
+          className="form-control mb-3"
+          type="file"
+          onChange={handleFileChange}
+          accept=".csv"
+        />
+        <button
+          className="btn btn-primary w-100"
+          onClick={handleUpload}
+          disabled={uploading}
+        >
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+
+        {uploading && (
+          <div className="alert alert-info mt-3" role="alert">
+            Uploading file... please wait.
+          </div>
+        )}
+
+        {error && (
+          <div className="alert alert-danger mt-3" role="alert">
+            {error}
+          </div>
+        )}
       </div>
 
+      {/* Dataset Selection Section */}
       <div className="mt-5">
         <h4>Select a Dataset</h4>
-        {datasets && datasets.length > 0 ? (
+        {datasets.length > 0 ? (
           <select className="form-select" onChange={handleDatasetSelect}>
             <option value="">Select a dataset</option>
             {datasets.map((dataset, index) => (
@@ -95,8 +184,6 @@ const Home = () => {
         ) : (
           <p>No datasets available</p>
         )}
-
-        {error && <p style={{ color: 'red' }}>{error}</p>}
 
         {variables.length > 0 && (
           <div className="mt-4">
@@ -137,10 +224,11 @@ const Home = () => {
           </div>
         )}
 
+        {/* Chart Visualization Section */}
         {chartData && (
           <div className="mt-5">
             <h5>Graph</h5>
-            <Line data={chartData} />
+            <Line data={chartData} options={chartOptions} />
           </div>
         )}
       </div>

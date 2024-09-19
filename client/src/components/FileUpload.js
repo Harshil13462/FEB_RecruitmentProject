@@ -1,23 +1,17 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const FileUpload = () => {
   const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Handle file selection
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    // Example validation for file type
-    if (selectedFile && selectedFile.type !== 'text/csv') {
-      setError('Only CSV files are allowed.');
-      setFile(null);
-    } else {
-      setFile(selectedFile);
-      setError(null);
-    }
+    setFile(e.target.files[0]);
   };
 
   // Handle file upload
@@ -30,39 +24,78 @@ const FileUpload = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    setLoading(true);
     try {
-      const response = await axios.post('/upload', formData, {
+      setUploading(true);  // Set uploading state to true
+      setError(null);  // Clear any previous error
+      setSummary(null);  // Clear any previous summary
+
+      // Send POST request to Flask backend
+      const response = await axios.post('http://localhost:4000/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      setSummary(response.data.summary);
-      setError(null);
+
+      setSummary(response.data.summary);  // Set the summary response
     } catch (error) {
-      setError('File upload failed.');
+      setError('File upload failed. Please try again.');
       console.error(error);
     } finally {
-      setLoading(false);
+      setUploading(false);  // Set uploading state to false
     }
   };
 
   return (
-    <div>
-      <h2>Upload CSV File</h2>
-      <input type="file" onChange={handleFileChange} />
-      <button onClick={handleUpload} disabled={loading}>
-        {loading ? 'Uploading...' : 'Upload'}
-      </button>
+    <div className="container mt-4">
+      <h2 className="text-center">Upload CSV File</h2>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <div className="mt-3">
+        {/* File Input */}
+        <input
+          className="form-control mb-3"
+          type="file"
+          onChange={handleFileChange}
+          accept=".csv"
+        />
 
-      {summary && (
-        <div>
-          <h3>Summary Statistics</h3>
-          <pre>{JSON.stringify(summary, null, 2)}</pre>
-        </div>
-      )}
+        {/* Upload Button */}
+        <button
+          className="btn btn-primary w-100"
+          onClick={handleUpload}
+          disabled={uploading}
+        >
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+
+        {/* Upload Progress or Error Messages */}
+        {uploading && (
+          <div className="alert alert-info mt-3" role="alert">
+            Uploading file... please wait.
+          </div>
+        )}
+
+        {error && (
+          <div className="alert alert-danger mt-3" role="alert">
+            {error}
+          </div>
+        )}
+
+        {/* Summary Statistics Display */}
+        {summary && (
+          <div className="mt-5">
+            <h4>Summary Statistics</h4>
+            <pre>{JSON.stringify(summary, null, 2)}</pre>
+          </div>
+        )}
+
+        {/* Redirect to Home Button */}
+        <button
+          className="btn btn-secondary w-100 mt-3"
+          onClick={() => navigate('/')}
+        >
+          Back to Home
+        </button>
+      </div>
     </div>
   );
 };
